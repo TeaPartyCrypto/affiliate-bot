@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: bot-secrets
+type: Opaque
+stringData:
+  discord_bot_token: <discord_bot_token>
+
+---
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bot
+spec:
+  selector:
+    matchLabels:
+      app: bot
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: bot
+    spec:
+      containers:
+      - name: bot
+        image: gcr.io/mineonlium/promo-bot@sha256:b83e557ab61c7c6b67e8b249747eae7b99d08b61b24249f93c3bd465a8828600
+        env:
+        - name: DISCORD_GUILD_ID
+          value: your_discord_guild_id
+        - name: DISCORD_BOT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: bot-secrets
+              key: discord_bot_token
+        - name: REDIS_ADDR
+          value: redis:6379
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: promo-bot
+spec:
+  selector:
+    app: bot
+  type: LoadBalancer
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
