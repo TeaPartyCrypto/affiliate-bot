@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -9,9 +10,9 @@ import (
 )
 
 var (
-	Token     = "your-token-here"
-	GuildID   = "your-guild-id"
-	RedisAddr = "localhost:6379"
+	Token     = os.Getenv("DISCORD_BOT_TOKEN")
+	GuildID   = os.Getenv("DISCORD_GUILD_ID")
+	RedisAddr = os.Getenv("REDIS_ADDR")
 )
 
 var client *redis.Client
@@ -23,9 +24,9 @@ type Affiliate struct {
 
 func main() {
 	client = redis.NewClient(&redis.Options{
-		Addr:     RedisAddr,
-		Password: "",
-		DB:       0,
+		Addr: RedisAddr,
+		// Password: "",
+		DB: 0,
 	})
 
 	_, err := client.Ping().Result()
@@ -77,7 +78,12 @@ func createAffiliateLink(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	err = client.HSet(i.Code, "inviterID", m.Author.ID, "uses", 0).Err()
+	err = client.HSet(i.Code, "inviterID", m.Author.ID).Err()
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, "Error storing invite data.")
+		return
+	}
+	err = client.HSet(i.Code, "uses", 0).Err()
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, "Error storing invite data.")
 		return
@@ -105,6 +111,7 @@ func memberJoin(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 			client.HSet(invite.Code, "uses", invite.Uses)
 			client.SAdd("affiliate:"+inviterID+":invitees", m.User.ID)
 			client.Set("user:"+m.User.ID+":inviter", inviterID, 0)
+			// add the users discord name to the inviter's list of invitees
 			break
 		}
 	}
